@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Game</title>
     <!-- Add PeerJS for WebRTC -->
-    <script src="hc:\Users\trumble\OneDrive - Webfleet\Desktop\Ryan perso\Driving game\chess.htmlttps://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -453,12 +453,13 @@
             document.getElementById('black-time').textContent = gameTimeLimit > 0 ? formatTime(blackTimeRemaining) : '--:--';
             
             // Update active timer visual
-            document.getElementById('white-timer').classList.toggle('active-timer', turn === 'w' && gameTimeLimit > 0);
-            document.getElementById('black-timer').classList.toggle('active-timer', turn === 'b' && gameTimeLimit > 0);
+            document.getElementById('white-timer').classList.toggle('active-timer', turn === 'w' && gameTimeLimit > 0 && isGameStarted);
+            document.getElementById('black-timer').classList.toggle('active-timer', turn === 'b' && gameTimeLimit > 0 && isGameStarted);
         }
 
         function startTimer() {
             if (gameTimeLimit === 0) return; // No timer for this game
+            if (!isGameStarted) return; // Don't start timer until game has started (both players connected)
             
             clearInterval(timerInterval);
             timerInterval = setInterval(() => {
@@ -506,6 +507,15 @@
             renderBoard();
             updateStatus();
             updateTimerDisplay();
+            
+            // For multiplayer, the timer will start when the second player connects
+            // For single-player, start the timer immediately
+            if (!peer || !isHost) {
+                isGameStarted = true;
+                if (gameTimeLimit > 0) {
+                    startTimer();
+                }
+            }
         }
 
         // Attach event listeners to mode buttons
@@ -839,7 +849,7 @@
             if (gameTimeLimit > 0) {
                 whiteTimeRemaining = gameTimeLimit;
                 blackTimeRemaining = gameTimeLimit;
-                startTimer();
+                // Don't start timer here - it will start when both players are connected
             }
         }
 
@@ -883,11 +893,10 @@
                     // Send initial game state if host
                     if (isHost) {
                         sendGameState();
-                    }
-                    
-                    // Start the timer when both players are connected
-                    if (gameTimeLimit > 0) {
-                        startTimer();
+                        // Start the timer now that both players are connected
+                        if (gameTimeLimit > 0) {
+                            startTimer();
+                        }
                     }
                 }, 1500);
             });
@@ -900,11 +909,8 @@
                 document.getElementById('connection-status').classList.remove('hidden');
                 document.getElementById('connection-status').textContent = 'Opponent disconnected';
                 isGameStarted = false;
-                
-                // Pause the timer when opponent disconnects
-                if (timerInterval) {
-                    stopTimer();
-                }
+                // Stop the timer if opponent disconnects
+                stopTimer();
             });
         }
 
@@ -928,10 +934,7 @@
                 renderBoard();
                 updateStatus();
                 updateTimerDisplay();
-                
-                // Timer will only start if both players are connected
-                // and only if we haven't already started the timer
-                if (gameTimeLimit > 0 && isGameStarted && !timerInterval) {
+                if (gameTimeLimit > 0 && isGameStarted) {
                     startTimer();
                 }
             }
@@ -967,6 +970,17 @@
 
         // Modify new game button to reset connection status
         document.getElementById('new-game').addEventListener('click', () => {
+            // Clean up existing connection if any
+            if (connection) {
+                connection.close();
+                connection = null;
+            }
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+            
+            // Reset game state variables
             isHost = true;
             playerColor = 'w';
             isGameStarted = false;
@@ -976,14 +990,7 @@
             document.getElementById('copy-link').classList.add('hidden');
             document.getElementById('connection-status').classList.add('hidden');
             
-            // Clean up existing connection if any
-            if (connection) {
-                connection.close();
-            }
-            if (peer) {
-                peer.destroy();
-            }
-            
+            // Initialize peer connection for multiplayer
             initializePeer();
             stopTimer();
             showModeSelection();
@@ -1013,6 +1020,30 @@
                     console.error('PeerJS error:', err);
                     document.getElementById('connection-status').textContent = 'Failed to join game. Invalid or expired link.';
                 });
+            }
+        });
+
+        // Add event listener for copy button
+        document.getElementById('copy-link').addEventListener('click', () => {
+            const gameLinkInput = document.getElementById('game-link');
+            gameLinkInput.select();
+            gameLinkInput.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                // Use modern clipboard API if available
+                navigator.clipboard.writeText(gameLinkInput.value).then(() => {
+                    document.getElementById('copy-link').textContent = 'Copied!';
+                    setTimeout(() => {
+                        document.getElementById('copy-link').textContent = 'Copy Game Link';
+                    }, 2000);
+                });
+            } catch (err) {
+                // Fallback to document.execCommand
+                document.execCommand('copy');
+                document.getElementById('copy-link').textContent = 'Copied!';
+                setTimeout(() => {
+                    document.getElementById('copy-link').textContent = 'Copy Game Link';
+                }, 2000);
             }
         });
 
