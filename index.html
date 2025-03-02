@@ -302,6 +302,7 @@
             </div>
             <div id="controls">
                 <button id="new-game">New Game</button>
+                <button id="resign-button" class="hidden">Resign</button>
             </div>
         </div>
     </div>
@@ -518,6 +519,12 @@
                 isGameStarted = true;
                 if (gameTimeLimit > 0) {
                     startTimer();
+                }
+                
+                // If we're not in multiplayer mode (no peer) show resign button immediately
+                if (!peer) {
+                    document.getElementById('new-game').classList.add('hidden');
+                    document.getElementById('resign-button').classList.remove('hidden');
                 }
             }
         }
@@ -940,6 +947,10 @@
                     isGameStarted = true;
                     document.getElementById('connection-status').classList.add('hidden');
                     
+                    // Show resign button, hide new game button
+                    document.getElementById('new-game').classList.add('hidden');
+                    document.getElementById('resign-button').classList.remove('hidden');
+                    
                     // Send initial game state if host
                     if (isHost) {
                         sendGameState();
@@ -961,11 +972,19 @@
                 isGameStarted = false;
                 // Stop the timer if opponent disconnects
                 stopTimer();
+                
+                // Show new game button, hide resign button
+                document.getElementById('new-game').classList.remove('hidden');
+                document.getElementById('resign-button').classList.add('hidden');
             });
             
             connection.on('error', (err) => {
                 console.error('Connection error:', err);
                 document.getElementById('connection-status').textContent = 'Connection error occurred';
+                
+                // Show new game button, hide resign button
+                document.getElementById('new-game').classList.remove('hidden');
+                document.getElementById('resign-button').classList.add('hidden');
             });
         }
 
@@ -976,6 +995,11 @@
                 renderBoard();
                 updateStatus();
                 updateTimerDisplay();
+                
+                // Make sure timer is running for the guest player after receiving moves
+                if (!isHost && gameTimeLimit > 0 && isGameStarted) {
+                    startTimer();
+                }
             } else if (data.type === 'gameState') {
                 // Update local game state
                 board = data.board;
@@ -986,12 +1010,27 @@
                 gameTimeLimit = data.gameTimeLimit;
                 whiteTimeRemaining = data.whiteTimeRemaining;
                 blackTimeRemaining = data.blackTimeRemaining;
+                gameOver = data.gameOver || false;
                 renderBoard();
                 updateStatus();
                 updateTimerDisplay();
-                if (gameTimeLimit > 0 && isGameStarted) {
+                
+                // Start timer for guest player after receiving game state
+                if (!isHost && gameTimeLimit > 0 && isGameStarted && !gameOver) {
                     startTimer();
                 }
+            } else if (data.type === 'resign') {
+                // Handle resignation from opponent
+                gameOver = true;
+                stopTimer();
+                const winner = playerColor;
+                const status = document.getElementById('status');
+                status.textContent = playerColor === 'w' ? 'Black resigned. White wins!' : 'White resigned. Black wins!';
+                
+                // Show New Game button
+                document.getElementById('new-game').textContent = 'New Game';
+                document.getElementById('resign-button').classList.add('hidden');
+                document.getElementById('new-game').classList.remove('hidden');
             }
         }
 
@@ -1007,7 +1046,8 @@
                 castlingRights,
                 gameTimeLimit,
                 whiteTimeRemaining,
-                blackTimeRemaining
+                blackTimeRemaining,
+                gameOver
             });
         }
 
@@ -1020,6 +1060,14 @@
                     from: move.from,
                     to: move.to
                 }
+            });
+        }
+        
+        function sendResignation() {
+            if (!connection) return;
+            
+            connection.send({
+                type: 'resign'
             });
         }
 
@@ -1151,6 +1199,26 @@
                     document.getElementById('copy-link').textContent = 'Copy Game Link';
                 }, 2000);
             }
+        });
+
+        // Add event listener for resign button
+        document.getElementById('resign-button').addEventListener('click', () => {
+            // Handle resignation
+            gameOver = true;
+            stopTimer();
+            
+            // Update status to show resignation
+            const status = document.getElementById('status');
+            status.textContent = playerColor === 'w' ? 'White resigned. Black wins!' : 'Black resigned. White wins!';
+            
+            // If connected to opponent, send resignation message
+            if (connection) {
+                sendResignation();
+            }
+            
+            // Show new game button, hide resign button
+            document.getElementById('new-game').classList.remove('hidden');
+            document.getElementById('resign-button').classList.add('hidden');
         });
 
         // Initialize the game with no timer initially
