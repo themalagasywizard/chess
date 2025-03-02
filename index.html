@@ -504,6 +504,10 @@
             blackTimeRemaining = timeLimit;
             hideModeSelection();
             initializeGame();
+            
+            // Now that player has selected a mode, initialize PeerJS
+            initializePeer();
+            
             renderBoard();
             updateStatus();
             updateTimerDisplay();
@@ -882,7 +886,11 @@
                     document.getElementById('game-link').value = gameLink;
                     document.getElementById('game-link').classList.remove('hidden');
                     document.getElementById('copy-link').classList.remove('hidden');
+                    
+                    // Show connection status now that we have a game ID
+                    document.getElementById('connection-status').textContent = 'Waiting for opponent to join...';
                     document.getElementById('connection-status').classList.remove('hidden');
+                    
                     document.getElementById('player-info').textContent = 'Playing as: White';
                     console.log('Created game with ID:', id);
                 }
@@ -896,17 +904,26 @@
 
             peer.on('error', (err) => {
                 console.error('PeerJS error:', err);
-                document.getElementById('connection-status').textContent = `Connection error: ${err.type}. Please try again.`;
                 
-                // Handle specific error types
-                if (err.type === 'network' || err.type === 'server-error') {
-                    document.getElementById('connection-status').textContent = 'Network connection issue. Please check your internet connection.';
+                // Only show error messages after a game has been created
+                if (isHost || document.getElementById('connection-status').classList.contains('hidden') === false) {
+                    if (err.type === 'network' || err.type === 'server-error') {
+                        document.getElementById('connection-status').textContent = 'Network connection issue. Please check your internet connection.';
+                    } else {
+                        document.getElementById('connection-status').textContent = `Connection error: ${err.type}. Please try again.`;
+                    }
+                    document.getElementById('connection-status').classList.remove('hidden');
                 }
             });
             
             peer.on('disconnected', () => {
                 console.log('PeerJS disconnected, attempting to reconnect');
-                document.getElementById('connection-status').textContent = 'Connection lost. Attempting to reconnect...';
+                
+                // Only show disconnection message if we were previously connected
+                if (isHost || document.getElementById('connection-status').classList.contains('hidden') === false) {
+                    document.getElementById('connection-status').textContent = 'Connection lost. Attempting to reconnect...';
+                    document.getElementById('connection-status').classList.remove('hidden');
+                }
                 
                 // Try to reconnect
                 peer.reconnect();
@@ -1028,17 +1045,18 @@
             playerColor = 'w';
             isGameStarted = false;
             document.getElementById('player-info').textContent = 'Waiting for game to start...';
-            document.getElementById('connection-status').textContent = 'Waiting for opponent to join...';
+            
+            // Hide connection status elements initially
+            document.getElementById('connection-status').classList.add('hidden');
             document.getElementById('game-link').classList.add('hidden');
             document.getElementById('copy-link').classList.add('hidden');
-            document.getElementById('connection-status').classList.add('hidden');
             
-            // Initialize peer connection for multiplayer after a small delay
-            // This helps ensure proper cleanup before creating a new connection
-            setTimeout(() => {
-                initializePeer();
-                showModeSelection();
-            }, 100);
+            // Show the mode selection
+            showModeSelection();
+            
+            // Initialize peer connection for multiplayer only after game mode is selected
+            // This helps prevent premature error messages
+            // PeerJS will be initialized in the selectGameMode function
         });
 
         // Modify the window load handler for joining players
@@ -1097,8 +1115,17 @@
                     }
                 });
             } else {
-                // No game ID in URL, initialize a new game as host
-                initializePeer();
+                // No game ID in URL, don't initialize PeerJS yet
+                // Just set default game state
+                isHost = true;
+                isGameStarted = false;
+                document.getElementById('player-info').textContent = 'Welcome to Chess! Click "New Game" to start.';
+                // Hide connection status elements for new players
+                document.getElementById('connection-status').classList.add('hidden');
+                document.getElementById('game-link').classList.add('hidden');
+                document.getElementById('copy-link').classList.add('hidden');
+                
+                // Don't initialize peer here - wait for New Game button click
             }
         });
 
@@ -1132,18 +1159,6 @@
         renderBoard();
         updateStatus();
         updateTimerDisplay();
-        
-        // Check URL for game ID on initial page load
-        const urlParams = new URLSearchParams(window.location.search);
-        const joinGameId = urlParams.get('game');
-        
-        // If no game ID in URL, show start screen for new users
-        if (!joinGameId) {
-            // Reset game state variables for new users
-            isHost = true;
-            isGameStarted = false;
-            document.getElementById('player-info').textContent = 'Welcome to Chess! Click "New Game" to start.';
-        }
     </script>
 </body>
 </html>
