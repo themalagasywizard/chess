@@ -3,32 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matrix Chess</title>
+    <title>The Matrix: Chess Simulation</title>
     <!-- Add PeerJS for WebRTC -->
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    <!-- Add Google Fonts -->
+    <!-- Add Google Fonts - using Matrix-inspired monospace -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #00ff00;
-            --primary-light: #33ff33;
-            --primary-dark: #008800;
-            --accent-color: #00ccff;
-            --dark-bg: #000000;
-            --medium-bg: #0a1a0a;
-            --light-bg: #0f2f0f;
-            --text-light: #00ff00;
-            --text-dark: #000000;
-            --white-square: #0a1a0a;
-            --black-square: #000000;
-            --highlight: rgba(0, 255, 0, 0.5);
-            --valid-move: rgba(0, 255, 0, 0.3);
-            --last-move: rgba(0, 204, 255, 0.4);
+            --matrix-green: #00ff41;
+            --matrix-dark-green: #003b00;
+            --matrix-light-green: #63ff8a;
+            --matrix-black: #000000;
+            --matrix-bg: #0a0e0a;
+            --matrix-panel: #0c160c;
+            --matrix-highlight: rgba(0, 255, 65, 0.7);
+            --white-square: #121212;
+            --black-square: #070707;
+            --piece-white: #ffffff;
+            --piece-black: #000000;
+            --white-glow: 0 0 10px rgba(255, 255, 255, 0.8);
+            --green-glow: 0 0 15px rgba(0, 255, 65, 0.7);
+            --valid-move: rgba(0, 255, 65, 0.4);
+            --last-move: rgba(0, 150, 65, 0.5);
             --board-border: 8px;
-            --shadow-color: rgba(0, 255, 0, 0.2);
+            --shadow-color: rgba(0, 255, 65, 0.2);
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.97; text-shadow: 0 0 5px var(--matrix-green); }
+            5% { opacity: 0.9; text-shadow: 0 0 5px var(--matrix-green); }
+            10% { opacity: 0.98; text-shadow: 0 0 5px var(--matrix-green); }
+            15% { opacity: 1; text-shadow: 0 0 5px var(--matrix-green), 0 0 10px var(--matrix-green); }
+            20% { opacity: 0.96; text-shadow: 0 0 5px var(--matrix-green); }
+            50% { opacity: 1; text-shadow: 0 0 5px var(--matrix-green), 0 0 15px var(--matrix-green); }
+            70% { opacity: 0.98; text-shadow: 0 0 5px var(--matrix-green); }
+            100% { opacity: 0.94; text-shadow: 0 0 5px var(--matrix-green); }
+        }
+
+        @keyframes matrixBg {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 0% 100%; }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 5px var(--matrix-green); }
+            50% { box-shadow: 0 0 15px var(--matrix-green), 0 0 20px var(--matrix-green); }
+            100% { box-shadow: 0 0 5px var(--matrix-green); }
+        }
+
+        @keyframes matrixFloat {
+            from { transform: translateY(0); }
+            to { transform: translateY(100vh); }
         }
 
         * {
@@ -40,50 +67,59 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: var(--dark-bg);
-            color: var(--text-light);
-            font-family: 'Poppins', sans-serif;
+            background-color: var(--matrix-black);
+            color: var(--matrix-green);
+            font-family: 'Share Tech Mono', monospace;
             height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
             background-image: 
-                linear-gradient(0deg, rgba(0, 0, 0, 0.9) 50%, transparent 50%),
-                linear-gradient(90deg, rgba(0, 0, 0, 0.9) 50%, transparent 50%);
-            background-size: 4px 4px;
+                linear-gradient(0deg, rgba(0, 20, 0, 0.9) 0%, rgba(0, 5, 0, 0.9) 100%),
+                repeating-linear-gradient(rgba(0, 255, 65, 0.1) 0%, rgba(0, 30, 0, 0.1) 50%, rgba(0, 255, 65, 0.1) 100%);
+            background-size: 100% 500px;
+            animation: matrixBg 40s linear infinite;
             position: relative;
         }
 
         body::before {
-            content: '';
+            content: "";
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(rgba(0, 255, 0, 0.03), rgba(0, 255, 0, 0.01));
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(0, 255, 65, 0.05) 0%, rgba(0, 0, 0, 0.7) 100%);
             pointer-events: none;
-            z-index: -1;
+            z-index: 1;
         }
 
-        body::after {
-            content: '';
+        #matrix-code {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: repeating-linear-gradient(
-                0deg,
-                rgba(0, 0, 0, 0.15),
-                rgba(0, 0, 0, 0.15) 1px,
-                transparent 1px,
-                transparent 2px
-            );
+            z-index: 0;
+            overflow: hidden;
+            opacity: 0.2;
             pointer-events: none;
-            z-index: 1;
-            opacity: 0.3;
+        }
+
+        .matrix-column {
+            position: absolute;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            line-height: 1.2;
+            white-space: nowrap;
+            opacity: 0.7;
+        }
+
+        .matrix-column span {
+            display: inline-block;
+            margin: 0;
+            padding: 0;
         }
 
         #chess-game {
@@ -108,26 +144,6 @@
             position: relative;
         }
 
-        #board-container::before {
-            content: '';
-            position: absolute;
-            top: -10px;
-            left: -10px;
-            right: -10px;
-            bottom: -10px;
-            border-radius: 12px;
-            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
-            z-index: -1;
-            filter: blur(15px);
-            opacity: 0.3;
-            animation: pulse 4s infinite alternate;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.2; filter: blur(15px); }
-            100% { opacity: 0.4; filter: blur(20px); }
-        }
-
         #side-panel {
             display: flex;
             flex-direction: column;
@@ -135,36 +151,31 @@
             align-items: center;
             width: 25vmin;
             height: 80vmin;
-            background-color: rgba(0, 20, 0, 0.7);
-            border: 1px solid var(--primary-color);
-            border-radius: 12px;
+            background-color: var(--matrix-panel);
+            border: 1px solid var(--matrix-green);
+            border-radius: 4px;
             padding: 20px;
-            box-shadow: 0 0 20px var(--shadow-color), inset 0 0 10px rgba(0, 255, 0, 0.1);
-            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px var(--shadow-color), inset 0 0 15px rgba(0, 255, 65, 0.1);
+            animation: pulse 4s infinite;
             position: relative;
             overflow: hidden;
         }
 
         #side-panel::before {
-            content: '';
+            content: "";
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                to bottom,
-                transparent 0%,
-                rgba(0, 255, 0, 0.05) 50%,
-                transparent 100%
-            );
-            animation: matrix-code 20s linear infinite;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    transparent 0px,
+                    transparent 2px,
+                    rgba(0, 255, 65, 0.05) 3px
+                );
             pointer-events: none;
-        }
-
-        @keyframes matrix-code {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100%); }
+            z-index: -1;
         }
 
         #board {
@@ -173,11 +184,12 @@
             display: grid;
             grid-template-columns: repeat(8, 10vmin);
             grid-template-rows: repeat(8, 10vmin);
-            border: var(--board-border) solid var(--primary-dark);
-            border-radius: 8px;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.2), inset 0 0 15px rgba(0, 255, 0, 0.1);
+            border: var(--board-border) solid var(--matrix-dark-green);
+            border-radius: 4px;
+            box-shadow: 0 0 30px var(--shadow-color), inset 0 0 10px rgba(0, 255, 65, 0.3);
             overflow: hidden;
             position: relative;
+            background-color: var(--black-square);
         }
 
         #board::before {
@@ -187,11 +199,12 @@
             left: -4px;
             right: -4px;
             bottom: -4px;
-            border-radius: 12px;
-            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            border-radius: 8px;
+            background: linear-gradient(45deg, var(--matrix-dark-green), var(--matrix-green));
             z-index: -1;
             filter: blur(10px);
-            opacity: 0.3;
+            opacity: 0.7;
+            animation: pulse 5s infinite alternate;
         }
 
         .square {
@@ -220,31 +233,52 @@
             right: 0;
             bottom: 0;
             pointer-events: none;
+            opacity: 0.1;
+            background-image: linear-gradient(
+                rgba(0, 255, 65, 0.05) 1px, 
+                transparent 1px
+            ), 
+            linear-gradient(
+                90deg, 
+                rgba(0, 255, 65, 0.05) 1px, 
+                transparent 1px
+            );
+            background-size: 5px 5px;
         }
 
         .white-piece {
-            color: #ffffff;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4);
+            color: var(--piece-white);
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.8), 0 0 12px rgba(255, 255, 255, 0.5);
+            font-weight: bold;
+            transform: scale(1.05);
+            z-index: 5;
         }
 
         .black-piece {
-            color: #00ff00;
-            text-shadow: 0 0 10px rgba(0, 255, 0, 0.8), 0 0 20px rgba(0, 255, 0, 0.4);
+            color: var(--piece-black);
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+            filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.8));
+            transform: scale(1.05);
+            z-index: 5;
         }
 
         .light-square {
             background-color: var(--white-square);
-            border: 1px solid rgba(0, 255, 0, 0.1);
+            border: 1px solid rgba(0, 255, 65, 0.1);
         }
 
         .dark-square {
             background-color: var(--black-square);
-            border: 1px solid rgba(0, 255, 0, 0.1);
+            border: 1px solid rgba(0, 255, 65, 0.15);
         }
 
         .selected {
-            background-color: var(--highlight) !important;
-            box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.5);
+            background-color: var(--matrix-highlight) !important;
+            box-shadow: inset 0 0 15px var(--matrix-green);
         }
 
         .valid-move {
@@ -257,10 +291,10 @@
             position: absolute;
             width: 25%;
             height: 25%;
-            background: var(--primary-color);
+            background: var(--matrix-green);
             border-radius: 50%;
             opacity: 0.8;
-            box-shadow: 0 0 10px var(--primary-color);
+            box-shadow: 0 0 10px var(--matrix-green);
         }
 
         .last-move-from, .last-move-to {
@@ -273,9 +307,11 @@
             text-align: center;
             width: 100%;
             font-weight: 500;
-            color: var(--primary-color);
+            color: var(--matrix-green);
             letter-spacing: 0.5px;
-            text-shadow: 0 0 5px var(--primary-color);
+            text-shadow: 0 0 8px var(--matrix-green);
+            animation: flicker 3s infinite alternate;
+            font-family: 'VT323', monospace;
         }
 
         #timer-container {
@@ -291,32 +327,33 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 15px;
-            border-radius: 8px;
-            background-color: rgba(0, 20, 0, 0.7);
-            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 4px;
+            background-color: rgba(0, 30, 0, 0.7);
+            border: 1px solid var(--matrix-dark-green);
             transition: all 0.3s ease;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
         }
 
         .timer-label {
             font-size: 1.5vmin;
             font-weight: 500;
+            font-family: 'VT323', monospace;
         }
 
         .timer-value {
             font-size: 1.8vmin;
             font-weight: 600;
             font-variant-numeric: tabular-nums;
-            font-family: 'Courier New', monospace;
-            color: var(--primary-color);
-            text-shadow: 0 0 5px var(--primary-color);
+            letter-spacing: 1px;
+            font-family: 'Share Tech Mono', monospace;
+            text-shadow: 0 0 5px var(--matrix-green);
         }
 
         .active-timer {
-            background-color: rgba(0, 40, 0, 0.8);
+            background-color: rgba(0, 60, 0, 0.9);
             transform: scale(1.03);
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
-            border: 1px solid var(--primary-color);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+            border-color: var(--matrix-green);
         }
 
         #mode-selection {
@@ -325,7 +362,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
+            background-color: rgba(0, 10, 0, 0.9);
             display: none;
             justify-content: center;
             align-items: center;
@@ -333,48 +370,36 @@
             backdrop-filter: blur(5px);
         }
 
-        #mode-selection::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(rgba(0, 255, 0, 0.05), rgba(0, 255, 0, 0.01));
-            pointer-events: none;
-        }
-
         #mode-options {
-            background-color: rgba(0, 20, 0, 0.8);
-            border: 2px solid var(--primary-color);
-            border-radius: 16px;
+            background-color: var(--matrix-panel);
+            border: 2px solid var(--matrix-green);
+            border-radius: 4px;
             padding: 30px;
             display: flex;
             flex-direction: column;
             gap: 20px;
             max-width: 80%;
-            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
-            animation: fadeIn 0.3s ease-out;
+            box-shadow: 0 0 40px rgba(0, 255, 65, 0.3);
+            animation: fadeIn 0.3s ease-out, pulse 4s infinite;
             position: relative;
             overflow: hidden;
         }
 
         #mode-options::before {
-            content: '';
+            content: "";
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            right: 0;
+            bottom: 0;
             background: 
                 repeating-linear-gradient(
-                    to bottom,
                     transparent 0px,
                     transparent 2px,
-                    rgba(0, 255, 0, 0.05) 2px,
-                    rgba(0, 255, 0, 0.05) 4px
+                    rgba(0, 255, 65, 0.05) 3px
                 );
             pointer-events: none;
+            z-index: -1;
         }
 
         @keyframes fadeIn {
@@ -385,26 +410,47 @@
         .mode-button {
             padding: 14px 20px;
             font-size: 2vmin;
-            background: rgba(0, 40, 0, 0.7);
-            color: var(--primary-color);
-            border: 1px solid var(--primary-color);
-            border-radius: 8px;
+            background: rgba(0, 40, 0, 0.8);
+            color: var(--matrix-green);
+            border: 1px solid var(--matrix-green);
+            border-radius: 4px;
             cursor: pointer;
             transition: all 0.3s;
             width: 220px;
             text-align: center;
             font-weight: 500;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
-            text-shadow: 0 0 5px var(--primary-color);
-            font-family: 'Courier New', monospace;
+            font-family: 'Share Tech Mono', monospace;
+            text-shadow: 0 0 5px var(--matrix-green);
             letter-spacing: 1px;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+            position: relative;
+            overflow: hidden;
         }
 
         .mode-button:hover {
-            background: rgba(0, 60, 0, 0.8);
+            background: rgba(0, 80, 0, 0.8);
             transform: translateY(-3px);
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
-            text-shadow: 0 0 10px var(--primary-color);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+        }
+
+        .mode-button::after {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                rgba(0, 255, 65, 0.1),
+                rgba(0, 255, 65, 0)
+            );
+            transform: rotate(30deg);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .mode-button:hover::after {
+            opacity: 1;
         }
 
         #controls {
@@ -419,60 +465,81 @@
         button {
             padding: 12px 15px;
             font-size: 1.6vmin;
-            background: rgba(0, 40, 0, 0.7);
-            color: var(--primary-color);
-            border: 1px solid var(--primary-color);
-            border-radius: 8px;
+            background: rgba(0, 40, 0, 0.8);
+            color: var(--matrix-green);
+            border: 1px solid var(--matrix-green);
+            border-radius: 4px;
             cursor: pointer;
             transition: all 0.3s;
             width: 100%;
             font-weight: 500;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
-            text-shadow: 0 0 5px var(--primary-color);
-            font-family: 'Courier New', monospace;
+            font-family: 'Share Tech Mono', monospace;
+            text-shadow: 0 0 5px var(--matrix-green);
             letter-spacing: 1px;
             position: relative;
             overflow: hidden;
         }
 
-        button::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg, 
-                transparent, 
-                rgba(0, 255, 0, 0.2), 
-                transparent
-            );
-            transition: 0.5s;
-        }
-
         button:hover {
-            background: rgba(0, 60, 0, 0.8);
+            background: rgba(0, 80, 0, 0.8);
             transform: translateY(-2px);
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
-        }
-
-        button:hover::after {
-            left: 100%;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
         }
 
         button:active {
             transform: translateY(0);
-            box-shadow: 0 0 8px rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
         }
 
+        button::after {
+            content: "";
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: linear-gradient(
+                rgba(0, 255, 65, 0.2),
+                rgba(0, 255, 65, 0)
+            );
+            transform: rotate(30deg);
+            transition: all 0.5s;
+            opacity: 0;
+        }
+
+        button:hover::after {
+            top: -50%;
+            left: -50%;
+            opacity: 1;
+        }
+
+        #wallet-section {
+            display: none;  /* Hide the wallet section */
+        }
+        
+        .wallet-button {
+            display: none;  /* Hide wallet buttons */
+        }
+        
+        .wallet-info {
+            display: none;  /* Hide wallet info */
+        }
+        
+        .bet-input {
+            display: none;  /* Hide bet input */
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
         #game-status {
             margin-top: 12px;
             font-size: 1.5vmin;
-            color: var(--primary-color);
+            color: var(--matrix-green);
             text-align: center;
             font-weight: 500;
-            text-shadow: 0 0 5px var(--primary-color);
+            animation: flicker 3s infinite alternate;
         }
 
         #multiplayer-controls {
@@ -486,59 +553,36 @@
         #game-link {
             width: 100%;
             padding: 12px;
-            background: rgba(0, 20, 0, 0.7);
-            border: 1px solid var(--primary-color);
-            border-radius: 8px;
-            color: var(--primary-color);
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid var(--matrix-dark-green);
+            border-radius: 4px;
+            color: var(--matrix-green);
             font-size: 1.4vmin;
             margin-bottom: 8px;
             word-break: break-all;
-            font-family: 'Courier New', monospace;
-            box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1);
+            font-family: 'Share Tech Mono', monospace;
         }
 
         .copy-button {
-            background: rgba(0, 40, 0, 0.7);
-            color: var(--primary-color);
-            border: 1px solid var(--primary-color);
-            border-radius: 8px;
+            background: rgba(0, 40, 0, 0.8);
+            color: var(--matrix-green);
+            border: 1px solid var(--matrix-dark-green);
+            border-radius: 4px;
             padding: 12px;
             cursor: pointer;
             width: 100%;
             margin-bottom: 8px;
             font-weight: 500;
             transition: all 0.3s;
-            text-shadow: 0 0 5px var(--primary-color);
-            font-family: 'Courier New', monospace;
+            font-family: 'Share Tech Mono', monospace;
             letter-spacing: 1px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .copy-button::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg, 
-                transparent, 
-                rgba(0, 255, 0, 0.2), 
-                transparent
-            );
-            transition: 0.5s;
         }
 
         .copy-button:hover {
             background: rgba(0, 60, 0, 0.8);
             transform: translateY(-2px);
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
-        }
-
-        .copy-button:hover::after {
-            left: 100%;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+            border-color: var(--matrix-green);
         }
 
         #player-info {
@@ -546,19 +590,20 @@
             margin-bottom: 15px;
             font-size: 1.5vmin;
             font-weight: 500;
-            color: var(--primary-color);
-            text-shadow: 0 0 5px var(--primary-color);
-            font-family: 'Courier New', monospace;
+            color: var(--matrix-green);
+            text-shadow: 0 0 5px var(--matrix-green);
+            font-family: 'VT323', monospace;
+            letter-spacing: 1px;
         }
 
         #connection-status {
             text-align: center;
             margin: 10px 0;
             font-size: 1.4vmin;
-            color: var(--accent-color);
+            color: var(--matrix-light-green);
             font-weight: 500;
-            text-shadow: 0 0 5px var(--accent-color);
-            font-family: 'Courier New', monospace;
+            animation: flicker 3s infinite alternate;
+            font-family: 'Share Tech Mono', monospace;
         }
 
         /* Responsive adjustments */
@@ -594,16 +639,16 @@
     </style>
 </head>
 <body>
-    <div id="matrix-rain"></div>
+    <div id="matrix-code"></div>
     <div id="chess-game">
         <div id="board-container">
             <div id="board"></div>
         </div>
         <div id="side-panel">
-            <div id="status"></div>
+            <div id="status">MATRIX CHESS SIMULATION v1.0</div>
             <div id="timer-container">
                 <div class="timer-box" id="black-timer">
-                    <span class="timer-label">GREEN:</span>
+                    <span class="timer-label">BLACK:</span>
                     <span class="timer-value" id="black-time">--:--</span>
                 </div>
                 <div class="timer-box" id="white-timer">
@@ -612,84 +657,74 @@
                 </div>
             </div>
             <div id="multiplayer-controls">
-                <div id="player-info">WAITING FOR SIMULATION START...</div>
-                <div id="connection-status" class="hidden">ESTABLISHING CONNECTION...</div>
-                <input type="text" id="game-link" readonly class="hidden" placeholder="SESSION LINK WILL APPEAR HERE">
-                <button id="copy-link" class="copy-button hidden">COPY SESSION LINK</button>
+                <div id="player-info">SYSTEM INITIALIZING...</div>
+                <div id="connection-status" class="hidden">SEARCHING FOR OPPONENT NODE...</div>
+                <input type="text" id="game-link" readonly class="hidden" placeholder="CONNECTION LINK WILL APPEAR HERE">
+                <button id="copy-link" class="copy-button hidden">COPY ACCESS CODE</button>
             </div>
             <div id="controls">
-                <button id="new-game">INITIALIZE SIMULATION</button>
-                <button id="resign-button" class="hidden">TERMINATE SIMULATION</button>
+                <button id="new-game">INITIALIZE NEW SIMULATION</button>
+                <button id="resign-button" class="hidden">TERMINATE PROGRAM</button>
             </div>
         </div>
     </div>
 
     <div id="mode-selection">
         <div id="mode-options">
-            <h2 style="color: var(--primary-color); text-align: center; margin: 0 0 15px 0; font-weight: 600; text-shadow: 0 0 10px var(--primary-color); font-family: 'Share Tech Mono', monospace; letter-spacing: 2px;">SELECT SIMULATION</h2>
-            <button class="mode-button" data-time="300">5 MINUTES</button>
-            <button class="mode-button" data-time="600">10 MINUTES</button>
-            <button class="mode-button" data-time="0">NO TIMER</button>
+            <h2 style="color: var(--matrix-green); text-align: center; margin: 0 0 15px 0; font-weight: 600; font-family: 'VT323', monospace; letter-spacing: 2px; text-shadow: 0 0 10px var(--matrix-green);">SELECT SIMULATION PARAMETERS</h2>
+            <button class="mode-button" data-time="300">5 MINUTE PROTOCOL</button>
+            <button class="mode-button" data-time="600">10 MINUTE PROTOCOL</button>
+            <button class="mode-button" data-time="0">INFINITE LOOP</button>
         </div>
     </div>
     
     <script>
-        // Matrix rain effect
-        function createMatrixRain() {
-            const canvas = document.createElement('canvas');
-            canvas.id = 'matrix-canvas';
-            canvas.style.position = 'fixed';
-            canvas.style.top = '0';
-            canvas.style.left = '0';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.zIndex = '0';
-            canvas.style.opacity = '0.15';
-            canvas.style.pointerEvents = 'none';
-            document.getElementById('matrix-rain').appendChild(canvas);
+        // Matrix animation code
+        function createMatrixEffect() {
+            const matrixCode = document.getElementById('matrix-code');
+            const width = window.innerWidth;
+            const characters = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789';
+            const columnCount = Math.floor(width / 20);
             
-            const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            // Clear any existing matrix code
+            matrixCode.innerHTML = '';
             
-            const characters = "01";
-            const fontSize = 14;
-            const columns = canvas.width / fontSize;
-            const drops = [];
-            
-            for (let i = 0; i < columns; i++) {
-                drops[i] = Math.floor(Math.random() * canvas.height / fontSize);
-            }
-            
-            function draw() {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < columnCount; i++) {
+                const column = document.createElement('div');
+                column.className = 'matrix-column';
+                column.style.left = (i * 20) + "px";
+                column.style.top = Math.random() * -1000 + "px";
+                column.style.animationDelay = Math.random() * 2 + "s";
                 
-                ctx.fillStyle = '#00ff00';
-                ctx.font = fontSize + 'px monospace';
+                // Set a random height for this column
+                const columnHeight = Math.floor(Math.random() * 15) + 15;
                 
-                for (let i = 0; i < drops.length; i++) {
-                    const text = characters.charAt(Math.floor(Math.random() * characters.length));
-                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-                    
-                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-                        drops[i] = 0;
-                    }
-                    
-                    drops[i]++;
+                // Generate the text content for the column
+                for (let j = 0; j < columnHeight; j++) {
+                    const char = document.createElement('span');
+                    char.textContent = characters.charAt(Math.floor(Math.random() * characters.length));
+                    char.style.opacity = j === 0 ? 1 : Math.max(0.1, 1 - (j / columnHeight));
+                    char.style.color = j === 0 ? "#ffffff" : "var(--matrix-green)";
+                    char.style.textShadow = j === 0 ? "0 0 8px #fff" : "0 0 5px var(--matrix-green)";
+                    column.appendChild(char);
+                    column.appendChild(document.createElement('br'));
                 }
+                
+                // Set animation properties
+                column.style.animation = `matrixFloat ${Math.random() * 10 + 20}s linear infinite`;
+                matrixCode.appendChild(column);
             }
-            
-            setInterval(draw, 33);
-            
-            window.addEventListener('resize', () => {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            });
         }
         
-        // Initialize matrix rain effect
-        window.addEventListener('load', createMatrixRain);
+        // Initialize Matrix effect when window loads
+        window.addEventListener('load', function() {
+            setTimeout(createMatrixEffect, 500); // Slight delay to ensure elements are loaded
+            
+            // Recreate effect on window resize
+            window.addEventListener('resize', function() {
+                createMatrixEffect();
+            });
+        });
         
         const pieces = {
             'wp': '♙', 'wn': '♘', 'wb': '♗', 'wr': '♖', 'wq': '♕', 'wk': '♔',
@@ -861,27 +896,12 @@
             stopTimer();
             gameOver = true;
             const status = document.getElementById('status');
-            status.textContent = playerColor === 'w' ? 'TIME EXPIRED - GREEN WINS' : 'TIME EXPIRED - WHITE WINS';
+            status.textContent = playerColor === 'w' ? 'BLACK VICTORY BY TIME ANOMALY' : 'WHITE VICTORY BY TIME ANOMALY';
         }
 
         // Game mode selection
         function showModeSelection() {
             document.getElementById('mode-selection').style.display = 'flex';
-            
-            // Add Matrix-style typing effect to the title
-            const title = document.querySelector('#mode-options h2');
-            const originalText = title.textContent;
-            title.textContent = '';
-            
-            let i = 0;
-            const typeEffect = setInterval(() => {
-                if (i < originalText.length) {
-                    title.textContent += originalText.charAt(i);
-                    i++;
-                } else {
-                    clearInterval(typeEffect);
-                }
-            }, 100);
         }
 
         function hideModeSelection() {
@@ -893,56 +913,29 @@
             whiteTimeRemaining = timeLimit;
             blackTimeRemaining = timeLimit;
             hideModeSelection();
+            initializeGame();
             
-            // Add Matrix-style loading effect
-            const loadingOverlay = document.createElement('div');
-            loadingOverlay.style.position = 'fixed';
-            loadingOverlay.style.top = '0';
-            loadingOverlay.style.left = '0';
-            loadingOverlay.style.width = '100%';
-            loadingOverlay.style.height = '100%';
-            loadingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-            loadingOverlay.style.display = 'flex';
-            loadingOverlay.style.justifyContent = 'center';
-            loadingOverlay.style.alignItems = 'center';
-            loadingOverlay.style.zIndex = '1000';
+            // Now that player has selected a mode, initialize PeerJS
+            initializePeer();
             
-            const loadingText = document.createElement('div');
-            loadingText.textContent = 'INITIALIZING SIMULATION...';
-            loadingText.style.color = '#00ff00';
-            loadingText.style.fontFamily = "'Share Tech Mono', monospace";
-            loadingText.style.fontSize = '24px';
-            loadingText.style.textShadow = '0 0 10px #00ff00';
+            renderBoard();
+            updateStatus();
+            updateTimerDisplay();
             
-            loadingOverlay.appendChild(loadingText);
-            document.body.appendChild(loadingOverlay);
-            
-            setTimeout(() => {
-                document.body.removeChild(loadingOverlay);
-                initializeGame();
-                
-                // Now that player has selected a mode, initialize PeerJS
-                initializePeer();
-                
-                renderBoard();
-                updateStatus();
-                updateTimerDisplay();
-                
-                // For multiplayer, the timer will start when the second player connects
-                // For single-player, start the timer immediately
-                if (!peer || !isHost) {
-                    isGameStarted = true;
-                    if (gameTimeLimit > 0) {
-                        startTimer();
-                    }
-                    
-                    // If we're not in multiplayer mode (no peer) show resign button immediately
-                    if (!peer) {
-                        document.getElementById('new-game').classList.add('hidden');
-                        document.getElementById('resign-button').classList.remove('hidden');
-                    }
+            // For multiplayer, the timer will start when the second player connects
+            // For single-player, start the timer immediately
+            if (!peer || !isHost) {
+                isGameStarted = true;
+                if (gameTimeLimit > 0) {
+                    startTimer();
                 }
-            }, 1500);
+                
+                // If we're not in multiplayer mode (no peer) show resign button immediately
+                if (!peer) {
+                    document.getElementById('new-game').classList.add('hidden');
+                    document.getElementById('resign-button').classList.remove('hidden');
+                }
+            }
         }
 
         // Attach event listeners to mode buttons
@@ -1222,12 +1215,12 @@
             
             if (gameOver) return; // Don't update if game already over
             
-            let text = turn === 'w' ? 'WHITE PLAYER TURN' : 'GREEN PLAYER TURN';
+            let text = turn === 'w' ? 'WHITE NODE ACTIVE' : 'BLACK NODE ACTIVE';
             const inCheck = isSquareAttacked(...findKing(turn), turn === 'w' ? 'b' : 'w');
-            if (inCheck) text += ' - CHECK';
+            if (inCheck) text += ' - SYSTEM BREACH DETECTED';
             const moves = getAllLegalMoves(turn);
             if (!moves.length) {
-                text = inCheck ? (turn === 'w' ? 'GREEN WINS' : 'WHITE WINS') : 'STALEMATE';
+                text = inCheck ? (turn === 'w' ? 'SIMULATION TERMINATED: BLACK VICTORY' : 'SIMULATION TERMINATED: WHITE VICTORY') : 'SIMULATION TERMINATED: STALEMATE';
                 gameOver = true;
                 stopTimer();
             }
@@ -1356,7 +1349,7 @@
         function setupConnection() {
             connection.on('open', () => {
                 console.log('Connection established');
-                document.getElementById('connection-status').textContent = 'CONNECTION ESTABLISHED. INITIALIZING SIMULATION...';
+                document.getElementById('connection-status').textContent = 'Connected! Game starting...';
                 
                 // Start the game after a short delay
                 setTimeout(() => {
@@ -1367,56 +1360,14 @@
                     document.getElementById('new-game').classList.add('hidden');
                     document.getElementById('resign-button').classList.remove('hidden');
                     
-                    // Add a Matrix-style connection effect
-                    const boardElement = document.getElementById('board');
-                    boardElement.style.opacity = '0';
-                    
-                    // Create a glitch effect
-                    const glitchOverlay = document.createElement('div');
-                    glitchOverlay.style.position = 'absolute';
-                    glitchOverlay.style.top = '0';
-                    glitchOverlay.style.left = '0';
-                    glitchOverlay.style.width = '100%';
-                    glitchOverlay.style.height = '100%';
-                    glitchOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-                    glitchOverlay.style.display = 'flex';
-                    glitchOverlay.style.justifyContent = 'center';
-                    glitchOverlay.style.alignItems = 'center';
-                    glitchOverlay.style.zIndex = '10';
-                    glitchOverlay.style.color = '#00ff00';
-                    glitchOverlay.style.fontFamily = "'Share Tech Mono', monospace";
-                    glitchOverlay.style.fontSize = '24px';
-                    glitchOverlay.style.textShadow = '0 0 10px #00ff00';
-                    glitchOverlay.textContent = 'CONNECTING TO THE MATRIX...';
-                    
-                    document.getElementById('board-container').appendChild(glitchOverlay);
-                    
-                    setTimeout(() => {
-                        // Simulate glitch effect
-                        glitchOverlay.style.transform = 'skew(5deg)';
-                        glitchOverlay.style.opacity = '0.8';
-                        glitchOverlay.textContent = 'SIMULATION LOADED';
-                        
-                        setTimeout(() => {
-                            glitchOverlay.style.transform = 'skew(-3deg)';
-                            glitchOverlay.style.opacity = '0.6';
-                            
-                            setTimeout(() => {
-                                document.getElementById('board-container').removeChild(glitchOverlay);
-                                boardElement.style.opacity = '1';
-                                boardElement.style.transition = 'opacity 0.5s ease';
-                                
-                                // Send initial game state if host
-                                if (isHost) {
-                                    sendGameState();
-                                    // Start the timer now that both players are connected
-                                    if (gameTimeLimit > 0) {
-                                        startTimer();
-                                    }
-                                }
-                            }, 300);
-                        }, 300);
-                    }, 500);
+                    // Send initial game state if host
+                    if (isHost) {
+                        sendGameState();
+                        // Start the timer now that both players are connected
+                        if (gameTimeLimit > 0) {
+                            startTimer();
+                        }
+                    }
                 }, 1500);
             });
 
@@ -1426,7 +1377,7 @@
 
             connection.on('close', () => {
                 document.getElementById('connection-status').classList.remove('hidden');
-                document.getElementById('connection-status').textContent = 'CONNECTION TERMINATED';
+                document.getElementById('connection-status').textContent = 'Opponent disconnected';
                 isGameStarted = false;
                 // Stop the timer if opponent disconnects
                 stopTimer();
@@ -1438,7 +1389,7 @@
             
             connection.on('error', (err) => {
                 console.error('Connection error:', err);
-                document.getElementById('connection-status').textContent = 'SYSTEM ERROR: CONNECTION FAILURE';
+                document.getElementById('connection-status').textContent = 'Connection error occurred';
                 
                 // Show new game button, hide resign button
                 document.getElementById('new-game').classList.remove('hidden');
@@ -1483,7 +1434,7 @@
                 stopTimer();
                 const winner = playerColor;
                 const status = document.getElementById('status');
-                status.textContent = playerColor === 'w' ? 'Black resigned. White wins!' : 'White resigned. Black wins!';
+                status.textContent = playerColor === 'w' ? 'BLACK NODE TERMINATED. WHITE VICTORY.' : 'WHITE NODE TERMINATED. BLACK VICTORY.';
                 
                 // Show New Game button
                 document.getElementById('new-game').textContent = 'New Game';
@@ -1550,78 +1501,89 @@
             isHost = true;
             playerColor = 'w';
             isGameStarted = false;
-            document.getElementById('player-info').textContent = 'WAITING FOR SIMULATION START...';
+            document.getElementById('player-info').textContent = 'CORE SYSTEM READY';
             
             // Hide connection status elements initially
             document.getElementById('connection-status').classList.add('hidden');
             document.getElementById('game-link').classList.add('hidden');
             document.getElementById('copy-link').classList.add('hidden');
             
-            // Add a Matrix-style loading effect before showing mode selection
-            const loadingOverlay = document.createElement('div');
-            loadingOverlay.style.position = 'fixed';
-            loadingOverlay.style.top = '0';
-            loadingOverlay.style.left = '0';
-            loadingOverlay.style.width = '100%';
-            loadingOverlay.style.height = '100%';
-            loadingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-            loadingOverlay.style.display = 'flex';
-            loadingOverlay.style.justifyContent = 'center';
-            loadingOverlay.style.alignItems = 'center';
-            loadingOverlay.style.zIndex = '1000';
-            loadingOverlay.style.flexDirection = 'column';
+            // Show the mode selection
+            showModeSelection();
             
-            const loadingText = document.createElement('div');
-            loadingText.textContent = 'ACCESSING MATRIX...';
-            loadingText.style.color = '#00ff00';
-            loadingText.style.fontFamily = "'Share Tech Mono', monospace";
-            loadingText.style.fontSize = '24px';
-            loadingText.style.textShadow = '0 0 10px #00ff00';
-            loadingText.style.marginBottom = '20px';
+            // Initialize peer connection for multiplayer only after game mode is selected
+            // This helps prevent premature error messages
+            // PeerJS will be initialized in the selectGameMode function
+        });
+
+        // Modify the window load handler for joining players
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const joinGameId = urlParams.get('game');
             
-            const loadingBar = document.createElement('div');
-            loadingBar.style.width = '300px';
-            loadingBar.style.height = '10px';
-            loadingBar.style.border = '1px solid #00ff00';
-            loadingBar.style.position = 'relative';
-            loadingBar.style.overflow = 'hidden';
-            loadingBar.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.5)';
-            
-            const loadingProgress = document.createElement('div');
-            loadingProgress.style.position = 'absolute';
-            loadingProgress.style.top = '0';
-            loadingProgress.style.left = '0';
-            loadingProgress.style.height = '100%';
-            loadingProgress.style.width = '0%';
-            loadingProgress.style.backgroundColor = '#00ff00';
-            loadingProgress.style.transition = 'width 1s linear';
-            
-            loadingBar.appendChild(loadingProgress);
-            loadingOverlay.appendChild(loadingText);
-            loadingOverlay.appendChild(loadingBar);
-            document.body.appendChild(loadingOverlay);
-            
-            // Simulate loading progress
-            setTimeout(() => {
-                loadingProgress.style.width = '30%';
-                loadingText.textContent = 'CONNECTING TO MAINFRAME...';
+            if (joinGameId) {
+                isHost = false;
+                playerColor = 'b';
+                isGameStarted = false;
+                document.getElementById('player-info').textContent = 'ASSIGNED ROLE: BLACK NODE';
+                document.getElementById('connection-status').textContent = 'SEARCHING FOR OPPONENT NODE...';
+                document.getElementById('connection-status').classList.remove('hidden');
                 
-                setTimeout(() => {
-                    loadingProgress.style.width = '60%';
-                    loadingText.textContent = 'LOADING CHESS PROTOCOLS...';
-                    
-                    setTimeout(() => {
-                        loadingProgress.style.width = '100%';
-                        loadingText.textContent = 'READY';
+                // Create peer with debugging
+                peer = new Peer(undefined, {
+                    debug: 2 // Set to 3 for maximum verbosity
+                });
+                
+                peer.on('open', (id) => {
+                    console.log('Joining game ID:', joinGameId);
+                    try {
+                        // Set a timeout to handle connection attempts
+                        let connectionTimeout = setTimeout(() => {
+                            document.getElementById('connection-status').textContent = 'Connection timed out. Host may have left the game.';
+                        }, 15000);
                         
-                        setTimeout(() => {
-                            document.body.removeChild(loadingOverlay);
-                            // Show the mode selection
-                            showModeSelection();
-                        }, 500);
-                    }, 800);
-                }, 800);
-            }, 800);
+                        // Connect to the host
+                        connection = peer.connect(joinGameId, {
+                            reliable: true
+                        });
+                        
+                        if (connection) {
+                            setupConnection();
+                            
+                            // Clear timeout if connection is established
+                            connection.on('open', () => {
+                                clearTimeout(connectionTimeout);
+                            });
+                        } else {
+                            document.getElementById('connection-status').textContent = 'Failed to connect. Invalid game ID.';
+                        }
+                    } catch (err) {
+                        console.error('Error connecting to peer:', err);
+                        document.getElementById('connection-status').textContent = 'Error connecting to game. Please try again.';
+                    }
+                });
+
+                peer.on('error', (err) => {
+                    console.error('PeerJS error:', err);
+                    if (err.type === 'peer-unavailable') {
+                        document.getElementById('connection-status').textContent = 'Game not found. The host may have left or the game ID is invalid.';
+                    } else {
+                        document.getElementById('connection-status').textContent = `Connection error: ${err.type}. Please try again.`;
+                    }
+                });
+            } else {
+                // No game ID in URL, don't initialize PeerJS yet
+                // Just set default game state
+                isHost = true;
+                isGameStarted = false;
+                document.getElementById('player-info').textContent = 'Welcome to Chess! Click "New Game" to start.';
+                // Hide connection status elements for new players
+                document.getElementById('connection-status').classList.add('hidden');
+                document.getElementById('game-link').classList.add('hidden');
+                document.getElementById('copy-link').classList.add('hidden');
+                
+                // Don't initialize peer here - wait for New Game button click
+            }
         });
 
         // Add event listener for copy button
@@ -1633,17 +1595,17 @@
             try {
                 // Use modern clipboard API if available
                 navigator.clipboard.writeText(gameLinkInput.value).then(() => {
-                    document.getElementById('copy-link').textContent = 'LINK COPIED';
+                    document.getElementById('copy-link').textContent = 'Copied!';
                     setTimeout(() => {
-                        document.getElementById('copy-link').textContent = 'COPY SESSION LINK';
+                        document.getElementById('copy-link').textContent = 'Copy Game Link';
                     }, 2000);
                 });
             } catch (err) {
                 // Fallback to document.execCommand
                 document.execCommand('copy');
-                document.getElementById('copy-link').textContent = 'LINK COPIED';
+                document.getElementById('copy-link').textContent = 'Copied!';
                 setTimeout(() => {
-                    document.getElementById('copy-link').textContent = 'COPY SESSION LINK';
+                    document.getElementById('copy-link').textContent = 'Copy Game Link';
                 }, 2000);
             }
         });
@@ -1656,7 +1618,7 @@
             
             // Update status to show resignation
             const status = document.getElementById('status');
-            status.textContent = playerColor === 'w' ? 'SIMULATION TERMINATED - GREEN WINS' : 'SIMULATION TERMINATED - WHITE WINS';
+            status.textContent = playerColor === 'w' ? 'BLACK NODE TERMINATED. WHITE VICTORY.' : 'WHITE NODE TERMINATED. BLACK VICTORY.';
             
             // If connected to opponent, send resignation message
             if (connection) {
@@ -1664,7 +1626,6 @@
             }
             
             // Show new game button, hide resign button
-            document.getElementById('new-game').textContent = 'NEW SIMULATION';
             document.getElementById('new-game').classList.remove('hidden');
             document.getElementById('resign-button').classList.add('hidden');
         });
