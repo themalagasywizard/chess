@@ -3,22 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chess Game</title>
+    <title>Matrix Chess</title>
     <!-- Add PeerJS for WebRTC -->
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <!-- Add Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #00ff00;
+            --primary-light: #33ff33;
+            --primary-dark: #008800;
+            --accent-color: #00ccff;
+            --dark-bg: #000000;
+            --medium-bg: #0a1a0a;
+            --light-bg: #0f2f0f;
+            --text-light: #00ff00;
+            --text-dark: #000000;
+            --white-square: #0a1a0a;
+            --black-square: #000000;
+            --highlight: rgba(0, 255, 0, 0.5);
+            --valid-move: rgba(0, 255, 0, 0.3);
+            --last-move: rgba(0, 204, 255, 0.4);
+            --board-border: 8px;
+            --shadow-color: rgba(0, 255, 0, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             padding: 0;
-            background-color: #1a1a1a;
-            color: #e0e0e0;
-            font-family: Arial, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-light);
+            font-family: 'Poppins', sans-serif;
             height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
+            background-image: 
+                linear-gradient(0deg, rgba(0, 0, 0, 0.9) 50%, transparent 50%),
+                linear-gradient(90deg, rgba(0, 0, 0, 0.9) 50%, transparent 50%);
+            background-size: 4px 4px;
+            position: relative;
         }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(rgba(0, 255, 0, 0.03), rgba(0, 255, 0, 0.01));
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.3;
+        }
+
         #chess-game {
             display: flex;
             flex-direction: row;
@@ -26,37 +93,107 @@
             justify-content: center;
             width: 100%;
             height: 100%;
-            background: linear-gradient(45deg, rgba(30, 30, 30, 0.9), rgba(50, 50, 50, 0.9)),
-                        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><circle cx="50" cy="50" r="10" fill="%2333ff33" opacity="0.1"/></svg>') repeat;
+            padding: 20px;
+            gap: 30px;
+            position: relative;
+            z-index: 2;
         }
+
         #board-container {
             display: flex;
             justify-content: center;
             align-items: center;
             width: 80vmin;
             height: 80vmin;
+            position: relative;
         }
+
+        #board-container::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border-radius: 12px;
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            z-index: -1;
+            filter: blur(15px);
+            opacity: 0.3;
+            animation: pulse 4s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.2; filter: blur(15px); }
+            100% { opacity: 0.4; filter: blur(20px); }
+        }
+
         #side-panel {
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
-            width: 20vmin;
-            margin-left: 20px;
+            width: 25vmin;
             height: 80vmin;
+            background-color: rgba(0, 20, 0, 0.7);
+            border: 1px solid var(--primary-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 20px var(--shadow-color), inset 0 0 10px rgba(0, 255, 0, 0.1);
+            backdrop-filter: blur(5px);
+            position: relative;
+            overflow: hidden;
         }
+
+        #side-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(0, 255, 0, 0.05) 50%,
+                transparent 100%
+            );
+            animation: matrix-code 20s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes matrix-code {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+
         #board {
             width: 80vmin;
             height: 80vmin;
             display: grid;
             grid-template-columns: repeat(8, 10vmin);
             grid-template-rows: repeat(8, 10vmin);
-            border: 2px solid #00cc00;
-            box-shadow: 0 0 15px rgba(0, 204, 0, 0.5);
-            box-sizing: border-box;
-            gap: 0;
+            border: var(--board-border) solid var(--primary-dark);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.2), inset 0 0 15px rgba(0, 255, 0, 0.1);
             overflow: hidden;
+            position: relative;
         }
+
+        #board::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border-radius: 12px;
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            z-index: -1;
+            filter: blur(10px);
+            opacity: 0.3;
+        }
+
         .square {
             display: flex;
             align-items: center;
@@ -72,7 +209,9 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
+            transition: all 0.3s ease;
         }
+
         .square::after {
             content: '';
             position: absolute;
@@ -82,202 +221,380 @@
             bottom: 0;
             pointer-events: none;
         }
+
         .white-piece {
             color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4);
         }
+
         .black-piece {
-            color: #000000;
+            color: #00ff00;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.8), 0 0 20px rgba(0, 255, 0, 0.4);
         }
+
         .light-square {
-            background-color: #a0a0a0;
+            background-color: var(--white-square);
+            border: 1px solid rgba(0, 255, 0, 0.1);
         }
+
         .dark-square {
-            background-color: #505050;
+            background-color: var(--black-square);
+            border: 1px solid rgba(0, 255, 0, 0.1);
         }
+
         .selected {
-            background-color: #ffff00 !important;
+            background-color: var(--highlight) !important;
+            box-shadow: inset 0 0 15px rgba(0, 255, 0, 0.5);
         }
+
         .valid-move {
-            background-color: rgba(0, 255, 0, 0.5) !important;
+            background-color: var(--valid-move) !important;
             position: relative;
         }
+
         .valid-move::after {
             content: '';
             position: absolute;
-            width: 20%;
-            height: 20%;
-            background: #00ff00;
+            width: 25%;
+            height: 25%;
+            background: var(--primary-color);
             border-radius: 50%;
-            opacity: 0.7;
+            opacity: 0.8;
+            box-shadow: 0 0 10px var(--primary-color);
         }
+
         .last-move-from, .last-move-to {
-            background-color: rgba(0, 0, 255, 0.5) !important;
+            background-color: var(--last-move) !important;
         }
+
         #status {
-            margin: 10px 0;
-            font-size: 2vmin;
+            margin: 0 0 15px 0;
+            font-size: 1.8vmin;
             text-align: center;
             width: 100%;
+            font-weight: 500;
+            color: var(--primary-color);
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 5px var(--primary-color);
         }
+
         #timer-container {
             display: flex;
             flex-direction: column;
             width: 100%;
-            margin: 5px 0;
+            margin: 0 0 20px 0;
+            gap: 10px;
         }
+
         .timer-box {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 5px;
-            margin: 3px 0;
-            border-radius: 3px;
-            background-color: rgba(0, 0, 0, 0.3);
+            padding: 12px 15px;
+            border-radius: 8px;
+            background-color: rgba(0, 20, 0, 0.7);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
         }
+
         .timer-label {
             font-size: 1.5vmin;
+            font-weight: 500;
         }
+
         .timer-value {
             font-size: 1.8vmin;
-            font-weight: bold;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            font-family: 'Courier New', monospace;
+            color: var(--primary-color);
+            text-shadow: 0 0 5px var(--primary-color);
         }
+
         .active-timer {
-            background-color: rgba(0, 204, 0, 0.3);
+            background-color: rgba(0, 40, 0, 0.8);
+            transform: scale(1.03);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            border: 1px solid var(--primary-color);
         }
+
         #mode-selection {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.9);
             display: none;
             justify-content: center;
             align-items: center;
             z-index: 100;
+            backdrop-filter: blur(5px);
         }
+
+        #mode-selection::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(0, 255, 0, 0.05), rgba(0, 255, 0, 0.01));
+            pointer-events: none;
+        }
+
         #mode-options {
-            background-color: #2a2a2a;
-            border: 2px solid #00cc00;
-            border-radius: 10px;
-            padding: 20px;
+            background-color: rgba(0, 20, 0, 0.8);
+            border: 2px solid var(--primary-color);
+            border-radius: 16px;
+            padding: 30px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 20px;
             max-width: 80%;
-            box-shadow: 0 0 20px rgba(0, 204, 0, 0.5);
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+            animation: fadeIn 0.3s ease-out;
+            position: relative;
+            overflow: hidden;
         }
+
+        #mode-options::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    to bottom,
+                    transparent 0px,
+                    transparent 2px,
+                    rgba(0, 255, 0, 0.05) 2px,
+                    rgba(0, 255, 0, 0.05) 4px
+                );
+            pointer-events: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .mode-button {
-            padding: 12px 20px;
+            padding: 14px 20px;
             font-size: 2vmin;
-            background: #4a4a4a;
-            color: #fff;
-            border: 1px solid #00cc00;
-            border-radius: 5px;
+            background: rgba(0, 40, 0, 0.7);
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.3s;
-            width: 200px;
+            transition: all 0.3s;
+            width: 220px;
             text-align: center;
+            font-weight: 500;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+            text-shadow: 0 0 5px var(--primary-color);
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
         }
+
         .mode-button:hover {
-            background: #00cc00;
+            background: rgba(0, 60, 0, 0.8);
+            transform: translateY(-3px);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            text-shadow: 0 0 10px var(--primary-color);
         }
+
         #controls {
             display: flex;
             flex-direction: column;
             width: 100%;
             margin: 10px 0;
             flex-grow: 1;
+            gap: 12px;
         }
+
         button {
-            padding: 8px 5px;
-            margin: 5px 0;
-            font-size: 1.5vmin;
-            background: #00cc00;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
+            padding: 12px 15px;
+            font-size: 1.6vmin;
+            background: rgba(0, 40, 0, 0.7);
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s;
             width: 100%;
+            font-weight: 500;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+            text-shadow: 0 0 5px var(--primary-color);
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
         }
+
+        button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg, 
+                transparent, 
+                rgba(0, 255, 0, 0.2), 
+                transparent
+            );
+            transition: 0.5s;
+        }
+
         button:hover {
-            background: #00e600;
+            background: rgba(0, 60, 0, 0.8);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
         }
-        #wallet-section {
-            display: none;  /* Hide the wallet section */
+
+        button:hover::after {
+            left: 100%;
         }
-        
-        .wallet-button {
-            display: none;  /* Hide wallet buttons */
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.1);
         }
-        
-        .wallet-info {
-            display: none;  /* Hide wallet info */
-        }
-        
-        .bet-input {
-            display: none;  /* Hide bet input */
-        }
-        
-        .hidden {
-            display: none !important;
-        }
-        
+
         #game-status {
-            margin-top: 8px;
-            font-size: 1.4vmin;
-            color: #00cc00;
+            margin-top: 12px;
+            font-size: 1.5vmin;
+            color: var(--primary-color);
             text-align: center;
+            font-weight: 500;
+            text-shadow: 0 0 5px var(--primary-color);
         }
 
         #multiplayer-controls {
             width: 100%;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
         #game-link {
             width: 100%;
-            padding: 8px;
-            background: #4a4a4a;
-            border: 1px solid #00cc00;
-            border-radius: 5px;
-            color: #fff;
+            padding: 12px;
+            background: rgba(0, 20, 0, 0.7);
+            border: 1px solid var(--primary-color);
+            border-radius: 8px;
+            color: var(--primary-color);
             font-size: 1.4vmin;
             margin-bottom: 8px;
             word-break: break-all;
+            font-family: 'Courier New', monospace;
+            box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1);
         }
 
         .copy-button {
-            background: #4a4a4a;
-            color: #fff;
-            border: 1px solid #00cc00;
-            border-radius: 5px;
-            padding: 8px;
+            background: rgba(0, 40, 0, 0.7);
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 8px;
+            padding: 12px;
             cursor: pointer;
             width: 100%;
             margin-bottom: 8px;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-shadow: 0 0 5px var(--primary-color);
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .copy-button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg, 
+                transparent, 
+                rgba(0, 255, 0, 0.2), 
+                transparent
+            );
+            transition: 0.5s;
         }
 
         .copy-button:hover {
-            background: #00cc00;
+            background: rgba(0, 60, 0, 0.8);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+        }
+
+        .copy-button:hover::after {
+            left: 100%;
         }
 
         #player-info {
             text-align: center;
-            margin-bottom: 10px;
-            font-size: 1.4vmin;
+            margin-bottom: 15px;
+            font-size: 1.5vmin;
+            font-weight: 500;
+            color: var(--primary-color);
+            text-shadow: 0 0 5px var(--primary-color);
+            font-family: 'Courier New', monospace;
         }
 
         #connection-status {
             text-align: center;
             margin: 10px 0;
             font-size: 1.4vmin;
-            color: #00cc00;
+            color: var(--accent-color);
+            font-weight: 500;
+            text-shadow: 0 0 5px var(--accent-color);
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            #chess-game {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            #board-container {
+                width: 90vmin;
+                height: 90vmin;
+            }
+
+            #board {
+                width: 90vmin;
+                height: 90vmin;
+                grid-template-columns: repeat(8, 11.25vmin);
+                grid-template-rows: repeat(8, 11.25vmin);
+            }
+
+            .square {
+                width: 11.25vmin;
+                height: 11.25vmin;
+            }
+
+            #side-panel {
+                width: 90vmin;
+                height: auto;
+                padding: 15px;
+            }
         }
     </style>
 </head>
 <body>
+    <div id="matrix-rain"></div>
     <div id="chess-game">
         <div id="board-container">
             <div id="board"></div>
@@ -286,37 +603,94 @@
             <div id="status"></div>
             <div id="timer-container">
                 <div class="timer-box" id="black-timer">
-                    <span class="timer-label">Black:</span>
+                    <span class="timer-label">GREEN:</span>
                     <span class="timer-value" id="black-time">--:--</span>
                 </div>
                 <div class="timer-box" id="white-timer">
-                    <span class="timer-label">White:</span>
+                    <span class="timer-label">WHITE:</span>
                     <span class="timer-value" id="white-time">--:--</span>
                 </div>
             </div>
             <div id="multiplayer-controls">
-                <div id="player-info">Waiting for game to start...</div>
-                <div id="connection-status" class="hidden">Waiting for opponent to join...</div>
-                <input type="text" id="game-link" readonly class="hidden" placeholder="Game link will appear here">
-                <button id="copy-link" class="copy-button hidden">Copy Game Link</button>
+                <div id="player-info">WAITING FOR SIMULATION START...</div>
+                <div id="connection-status" class="hidden">ESTABLISHING CONNECTION...</div>
+                <input type="text" id="game-link" readonly class="hidden" placeholder="SESSION LINK WILL APPEAR HERE">
+                <button id="copy-link" class="copy-button hidden">COPY SESSION LINK</button>
             </div>
             <div id="controls">
-                <button id="new-game">New Game</button>
-                <button id="resign-button" class="hidden">Resign</button>
+                <button id="new-game">INITIALIZE SIMULATION</button>
+                <button id="resign-button" class="hidden">TERMINATE SIMULATION</button>
             </div>
         </div>
     </div>
 
     <div id="mode-selection">
         <div id="mode-options">
-            <h2 style="color: #00cc00; text-align: center; margin: 0 0 15px 0;">Select Game Mode</h2>
-            <button class="mode-button" data-time="300">5 Minutes</button>
-            <button class="mode-button" data-time="600">10 Minutes</button>
-            <button class="mode-button" data-time="0">No Timer</button>
+            <h2 style="color: var(--primary-color); text-align: center; margin: 0 0 15px 0; font-weight: 600; text-shadow: 0 0 10px var(--primary-color); font-family: 'Share Tech Mono', monospace; letter-spacing: 2px;">SELECT SIMULATION</h2>
+            <button class="mode-button" data-time="300">5 MINUTES</button>
+            <button class="mode-button" data-time="600">10 MINUTES</button>
+            <button class="mode-button" data-time="0">NO TIMER</button>
         </div>
     </div>
     
     <script>
+        // Matrix rain effect
+        function createMatrixRain() {
+            const canvas = document.createElement('canvas');
+            canvas.id = 'matrix-canvas';
+            canvas.style.position = 'fixed';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.zIndex = '0';
+            canvas.style.opacity = '0.15';
+            canvas.style.pointerEvents = 'none';
+            document.getElementById('matrix-rain').appendChild(canvas);
+            
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const characters = "01";
+            const fontSize = 14;
+            const columns = canvas.width / fontSize;
+            const drops = [];
+            
+            for (let i = 0; i < columns; i++) {
+                drops[i] = Math.floor(Math.random() * canvas.height / fontSize);
+            }
+            
+            function draw() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#00ff00';
+                ctx.font = fontSize + 'px monospace';
+                
+                for (let i = 0; i < drops.length; i++) {
+                    const text = characters.charAt(Math.floor(Math.random() * characters.length));
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                    
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    
+                    drops[i]++;
+                }
+            }
+            
+            setInterval(draw, 33);
+            
+            window.addEventListener('resize', () => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+        }
+        
+        // Initialize matrix rain effect
+        window.addEventListener('load', createMatrixRain);
+        
         const pieces = {
             'wp': '♙', 'wn': '♘', 'wb': '♗', 'wr': '♖', 'wq': '♕', 'wk': '♔',
             'bp': '♟', 'bn': '♞', 'bb': '♝', 'br': '♜', 'bq': '♛', 'bk': '♚'
@@ -487,12 +861,27 @@
             stopTimer();
             gameOver = true;
             const status = document.getElementById('status');
-            status.textContent = playerColor === 'w' ? 'Black wins on time' : 'White wins on time';
+            status.textContent = playerColor === 'w' ? 'TIME EXPIRED - GREEN WINS' : 'TIME EXPIRED - WHITE WINS';
         }
 
         // Game mode selection
         function showModeSelection() {
             document.getElementById('mode-selection').style.display = 'flex';
+            
+            // Add Matrix-style typing effect to the title
+            const title = document.querySelector('#mode-options h2');
+            const originalText = title.textContent;
+            title.textContent = '';
+            
+            let i = 0;
+            const typeEffect = setInterval(() => {
+                if (i < originalText.length) {
+                    title.textContent += originalText.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typeEffect);
+                }
+            }, 100);
         }
 
         function hideModeSelection() {
@@ -504,29 +893,56 @@
             whiteTimeRemaining = timeLimit;
             blackTimeRemaining = timeLimit;
             hideModeSelection();
-            initializeGame();
             
-            // Now that player has selected a mode, initialize PeerJS
-            initializePeer();
+            // Add Matrix-style loading effect
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.style.position = 'fixed';
+            loadingOverlay.style.top = '0';
+            loadingOverlay.style.left = '0';
+            loadingOverlay.style.width = '100%';
+            loadingOverlay.style.height = '100%';
+            loadingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            loadingOverlay.style.display = 'flex';
+            loadingOverlay.style.justifyContent = 'center';
+            loadingOverlay.style.alignItems = 'center';
+            loadingOverlay.style.zIndex = '1000';
             
-            renderBoard();
-            updateStatus();
-            updateTimerDisplay();
+            const loadingText = document.createElement('div');
+            loadingText.textContent = 'INITIALIZING SIMULATION...';
+            loadingText.style.color = '#00ff00';
+            loadingText.style.fontFamily = "'Share Tech Mono', monospace";
+            loadingText.style.fontSize = '24px';
+            loadingText.style.textShadow = '0 0 10px #00ff00';
             
-            // For multiplayer, the timer will start when the second player connects
-            // For single-player, start the timer immediately
-            if (!peer || !isHost) {
-                isGameStarted = true;
-                if (gameTimeLimit > 0) {
-                    startTimer();
-                }
+            loadingOverlay.appendChild(loadingText);
+            document.body.appendChild(loadingOverlay);
+            
+            setTimeout(() => {
+                document.body.removeChild(loadingOverlay);
+                initializeGame();
                 
-                // If we're not in multiplayer mode (no peer) show resign button immediately
-                if (!peer) {
-                    document.getElementById('new-game').classList.add('hidden');
-                    document.getElementById('resign-button').classList.remove('hidden');
+                // Now that player has selected a mode, initialize PeerJS
+                initializePeer();
+                
+                renderBoard();
+                updateStatus();
+                updateTimerDisplay();
+                
+                // For multiplayer, the timer will start when the second player connects
+                // For single-player, start the timer immediately
+                if (!peer || !isHost) {
+                    isGameStarted = true;
+                    if (gameTimeLimit > 0) {
+                        startTimer();
+                    }
+                    
+                    // If we're not in multiplayer mode (no peer) show resign button immediately
+                    if (!peer) {
+                        document.getElementById('new-game').classList.add('hidden');
+                        document.getElementById('resign-button').classList.remove('hidden');
+                    }
                 }
-            }
+            }, 1500);
         }
 
         // Attach event listeners to mode buttons
@@ -806,12 +1222,12 @@
             
             if (gameOver) return; // Don't update if game already over
             
-            let text = turn === 'w' ? 'White to move' : 'Black to move';
+            let text = turn === 'w' ? 'WHITE PLAYER TURN' : 'GREEN PLAYER TURN';
             const inCheck = isSquareAttacked(...findKing(turn), turn === 'w' ? 'b' : 'w');
-            if (inCheck) text += ' - Check';
+            if (inCheck) text += ' - CHECK';
             const moves = getAllLegalMoves(turn);
             if (!moves.length) {
-                text = inCheck ? (turn === 'w' ? 'Black wins' : 'White wins') : 'Stalemate';
+                text = inCheck ? (turn === 'w' ? 'GREEN WINS' : 'WHITE WINS') : 'STALEMATE';
                 gameOver = true;
                 stopTimer();
             }
@@ -940,7 +1356,7 @@
         function setupConnection() {
             connection.on('open', () => {
                 console.log('Connection established');
-                document.getElementById('connection-status').textContent = 'Connected! Game starting...';
+                document.getElementById('connection-status').textContent = 'CONNECTION ESTABLISHED. INITIALIZING SIMULATION...';
                 
                 // Start the game after a short delay
                 setTimeout(() => {
@@ -951,14 +1367,56 @@
                     document.getElementById('new-game').classList.add('hidden');
                     document.getElementById('resign-button').classList.remove('hidden');
                     
-                    // Send initial game state if host
-                    if (isHost) {
-                        sendGameState();
-                        // Start the timer now that both players are connected
-                        if (gameTimeLimit > 0) {
-                            startTimer();
-                        }
-                    }
+                    // Add a Matrix-style connection effect
+                    const boardElement = document.getElementById('board');
+                    boardElement.style.opacity = '0';
+                    
+                    // Create a glitch effect
+                    const glitchOverlay = document.createElement('div');
+                    glitchOverlay.style.position = 'absolute';
+                    glitchOverlay.style.top = '0';
+                    glitchOverlay.style.left = '0';
+                    glitchOverlay.style.width = '100%';
+                    glitchOverlay.style.height = '100%';
+                    glitchOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+                    glitchOverlay.style.display = 'flex';
+                    glitchOverlay.style.justifyContent = 'center';
+                    glitchOverlay.style.alignItems = 'center';
+                    glitchOverlay.style.zIndex = '10';
+                    glitchOverlay.style.color = '#00ff00';
+                    glitchOverlay.style.fontFamily = "'Share Tech Mono', monospace";
+                    glitchOverlay.style.fontSize = '24px';
+                    glitchOverlay.style.textShadow = '0 0 10px #00ff00';
+                    glitchOverlay.textContent = 'CONNECTING TO THE MATRIX...';
+                    
+                    document.getElementById('board-container').appendChild(glitchOverlay);
+                    
+                    setTimeout(() => {
+                        // Simulate glitch effect
+                        glitchOverlay.style.transform = 'skew(5deg)';
+                        glitchOverlay.style.opacity = '0.8';
+                        glitchOverlay.textContent = 'SIMULATION LOADED';
+                        
+                        setTimeout(() => {
+                            glitchOverlay.style.transform = 'skew(-3deg)';
+                            glitchOverlay.style.opacity = '0.6';
+                            
+                            setTimeout(() => {
+                                document.getElementById('board-container').removeChild(glitchOverlay);
+                                boardElement.style.opacity = '1';
+                                boardElement.style.transition = 'opacity 0.5s ease';
+                                
+                                // Send initial game state if host
+                                if (isHost) {
+                                    sendGameState();
+                                    // Start the timer now that both players are connected
+                                    if (gameTimeLimit > 0) {
+                                        startTimer();
+                                    }
+                                }
+                            }, 300);
+                        }, 300);
+                    }, 500);
                 }, 1500);
             });
 
@@ -968,7 +1426,7 @@
 
             connection.on('close', () => {
                 document.getElementById('connection-status').classList.remove('hidden');
-                document.getElementById('connection-status').textContent = 'Opponent disconnected';
+                document.getElementById('connection-status').textContent = 'CONNECTION TERMINATED';
                 isGameStarted = false;
                 // Stop the timer if opponent disconnects
                 stopTimer();
@@ -980,7 +1438,7 @@
             
             connection.on('error', (err) => {
                 console.error('Connection error:', err);
-                document.getElementById('connection-status').textContent = 'Connection error occurred';
+                document.getElementById('connection-status').textContent = 'SYSTEM ERROR: CONNECTION FAILURE';
                 
                 // Show new game button, hide resign button
                 document.getElementById('new-game').classList.remove('hidden');
@@ -1092,89 +1550,78 @@
             isHost = true;
             playerColor = 'w';
             isGameStarted = false;
-            document.getElementById('player-info').textContent = 'Waiting for game to start...';
+            document.getElementById('player-info').textContent = 'WAITING FOR SIMULATION START...';
             
             // Hide connection status elements initially
             document.getElementById('connection-status').classList.add('hidden');
             document.getElementById('game-link').classList.add('hidden');
             document.getElementById('copy-link').classList.add('hidden');
             
-            // Show the mode selection
-            showModeSelection();
+            // Add a Matrix-style loading effect before showing mode selection
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.style.position = 'fixed';
+            loadingOverlay.style.top = '0';
+            loadingOverlay.style.left = '0';
+            loadingOverlay.style.width = '100%';
+            loadingOverlay.style.height = '100%';
+            loadingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            loadingOverlay.style.display = 'flex';
+            loadingOverlay.style.justifyContent = 'center';
+            loadingOverlay.style.alignItems = 'center';
+            loadingOverlay.style.zIndex = '1000';
+            loadingOverlay.style.flexDirection = 'column';
             
-            // Initialize peer connection for multiplayer only after game mode is selected
-            // This helps prevent premature error messages
-            // PeerJS will be initialized in the selectGameMode function
-        });
-
-        // Modify the window load handler for joining players
-        window.addEventListener('load', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const joinGameId = urlParams.get('game');
+            const loadingText = document.createElement('div');
+            loadingText.textContent = 'ACCESSING MATRIX...';
+            loadingText.style.color = '#00ff00';
+            loadingText.style.fontFamily = "'Share Tech Mono', monospace";
+            loadingText.style.fontSize = '24px';
+            loadingText.style.textShadow = '0 0 10px #00ff00';
+            loadingText.style.marginBottom = '20px';
             
-            if (joinGameId) {
-                isHost = false;
-                playerColor = 'b';
-                isGameStarted = false;
-                document.getElementById('player-info').textContent = 'Playing as: Black';
-                document.getElementById('connection-status').textContent = 'Connecting to game...';
-                document.getElementById('connection-status').classList.remove('hidden');
+            const loadingBar = document.createElement('div');
+            loadingBar.style.width = '300px';
+            loadingBar.style.height = '10px';
+            loadingBar.style.border = '1px solid #00ff00';
+            loadingBar.style.position = 'relative';
+            loadingBar.style.overflow = 'hidden';
+            loadingBar.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.5)';
+            
+            const loadingProgress = document.createElement('div');
+            loadingProgress.style.position = 'absolute';
+            loadingProgress.style.top = '0';
+            loadingProgress.style.left = '0';
+            loadingProgress.style.height = '100%';
+            loadingProgress.style.width = '0%';
+            loadingProgress.style.backgroundColor = '#00ff00';
+            loadingProgress.style.transition = 'width 1s linear';
+            
+            loadingBar.appendChild(loadingProgress);
+            loadingOverlay.appendChild(loadingText);
+            loadingOverlay.appendChild(loadingBar);
+            document.body.appendChild(loadingOverlay);
+            
+            // Simulate loading progress
+            setTimeout(() => {
+                loadingProgress.style.width = '30%';
+                loadingText.textContent = 'CONNECTING TO MAINFRAME...';
                 
-                // Create peer with debugging
-                peer = new Peer(undefined, {
-                    debug: 2 // Set to 3 for maximum verbosity
-                });
-                
-                peer.on('open', (id) => {
-                    console.log('Joining game ID:', joinGameId);
-                    try {
-                        // Set a timeout to handle connection attempts
-                        let connectionTimeout = setTimeout(() => {
-                            document.getElementById('connection-status').textContent = 'Connection timed out. Host may have left the game.';
-                        }, 15000);
+                setTimeout(() => {
+                    loadingProgress.style.width = '60%';
+                    loadingText.textContent = 'LOADING CHESS PROTOCOLS...';
+                    
+                    setTimeout(() => {
+                        loadingProgress.style.width = '100%';
+                        loadingText.textContent = 'READY';
                         
-                        // Connect to the host
-                        connection = peer.connect(joinGameId, {
-                            reliable: true
-                        });
-                        
-                        if (connection) {
-                            setupConnection();
-                            
-                            // Clear timeout if connection is established
-                            connection.on('open', () => {
-                                clearTimeout(connectionTimeout);
-                            });
-                        } else {
-                            document.getElementById('connection-status').textContent = 'Failed to connect. Invalid game ID.';
-                        }
-                    } catch (err) {
-                        console.error('Error connecting to peer:', err);
-                        document.getElementById('connection-status').textContent = 'Error connecting to game. Please try again.';
-                    }
-                });
-
-                peer.on('error', (err) => {
-                    console.error('PeerJS error:', err);
-                    if (err.type === 'peer-unavailable') {
-                        document.getElementById('connection-status').textContent = 'Game not found. The host may have left or the game ID is invalid.';
-                    } else {
-                        document.getElementById('connection-status').textContent = `Connection error: ${err.type}. Please try again.`;
-                    }
-                });
-            } else {
-                // No game ID in URL, don't initialize PeerJS yet
-                // Just set default game state
-                isHost = true;
-                isGameStarted = false;
-                document.getElementById('player-info').textContent = 'Welcome to Chess! Click "New Game" to start.';
-                // Hide connection status elements for new players
-                document.getElementById('connection-status').classList.add('hidden');
-                document.getElementById('game-link').classList.add('hidden');
-                document.getElementById('copy-link').classList.add('hidden');
-                
-                // Don't initialize peer here - wait for New Game button click
-            }
+                        setTimeout(() => {
+                            document.body.removeChild(loadingOverlay);
+                            // Show the mode selection
+                            showModeSelection();
+                        }, 500);
+                    }, 800);
+                }, 800);
+            }, 800);
         });
 
         // Add event listener for copy button
@@ -1186,17 +1633,17 @@
             try {
                 // Use modern clipboard API if available
                 navigator.clipboard.writeText(gameLinkInput.value).then(() => {
-                    document.getElementById('copy-link').textContent = 'Copied!';
+                    document.getElementById('copy-link').textContent = 'LINK COPIED';
                     setTimeout(() => {
-                        document.getElementById('copy-link').textContent = 'Copy Game Link';
+                        document.getElementById('copy-link').textContent = 'COPY SESSION LINK';
                     }, 2000);
                 });
             } catch (err) {
                 // Fallback to document.execCommand
                 document.execCommand('copy');
-                document.getElementById('copy-link').textContent = 'Copied!';
+                document.getElementById('copy-link').textContent = 'LINK COPIED';
                 setTimeout(() => {
-                    document.getElementById('copy-link').textContent = 'Copy Game Link';
+                    document.getElementById('copy-link').textContent = 'COPY SESSION LINK';
                 }, 2000);
             }
         });
@@ -1209,7 +1656,7 @@
             
             // Update status to show resignation
             const status = document.getElementById('status');
-            status.textContent = playerColor === 'w' ? 'White resigned. Black wins!' : 'Black resigned. White wins!';
+            status.textContent = playerColor === 'w' ? 'SIMULATION TERMINATED - GREEN WINS' : 'SIMULATION TERMINATED - WHITE WINS';
             
             // If connected to opponent, send resignation message
             if (connection) {
@@ -1217,6 +1664,7 @@
             }
             
             // Show new game button, hide resign button
+            document.getElementById('new-game').textContent = 'NEW SIMULATION';
             document.getElementById('new-game').classList.remove('hidden');
             document.getElementById('resign-button').classList.add('hidden');
         });
