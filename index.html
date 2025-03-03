@@ -1432,12 +1432,10 @@
                 // Handle resignation from opponent
                 gameOver = true;
                 stopTimer();
-                const winner = playerColor;
                 const status = document.getElementById('status');
                 status.textContent = playerColor === 'w' ? 'BLACK NODE TERMINATED. WHITE VICTORY.' : 'WHITE NODE TERMINATED. BLACK VICTORY.';
                 
-                // Show New Game button
-                document.getElementById('new-game').textContent = 'New Game';
+                // Hide the resign button, show New Game button for both players
                 document.getElementById('resign-button').classList.add('hidden');
                 document.getElementById('new-game').classList.remove('hidden');
             }
@@ -1618,16 +1616,16 @@
             
             // Update status to show resignation
             const status = document.getElementById('status');
-            status.textContent = playerColor === 'w' ? 'BLACK NODE TERMINATED. WHITE VICTORY.' : 'WHITE NODE TERMINATED. BLACK VICTORY.';
+            status.textContent = playerColor === 'w' ? 'WHITE NODE TERMINATED. BLACK VICTORY.' : 'BLACK NODE TERMINATED. WHITE VICTORY.';
             
             // If connected to opponent, send resignation message
             if (connection) {
                 sendResignation();
             }
             
-            // Show new game button, hide resign button
-            document.getElementById('new-game').classList.remove('hidden');
+            // Hide resign button, show new game button
             document.getElementById('resign-button').classList.add('hidden');
+            document.getElementById('new-game').classList.remove('hidden');
         });
 
         // Initialize the game with no timer initially
